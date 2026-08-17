@@ -46,4 +46,7 @@
 # e2 =b'o'
 # print(merge_word(word,e1,e2))
 
-print((b' ', b't') in (b' ', b't', b'h', b'e'))
+#print((b' ', b't') in (b' ', b't', b'h', b'e'))
+
+import os
+print(os.cpu_count())

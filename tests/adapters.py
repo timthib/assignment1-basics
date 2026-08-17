@@ -10,6 +10,10 @@ from jaxtyping import Bool, Float, Int
 from torch import Tensor
 
 from cs336_basics.Part_I import train_bpe as _train_bpe
+from cs336_basics.Part_I import tokenizer as _Tokenizer
+from cs336_basics.Part_II import Linear as _Linear
+from cs336_basics.Part_II import Embedding as _Embedding
+from cs336_basics.Part_II import rmsnorm as _rmsnorm
 
 def run_linear(
     d_in: int,
@@ -29,8 +33,10 @@ def run_linear(
     Returns:
         Float[Tensor, "... d_out"]: The transformed output of your linear module.
     """
+    l = _Linear(d_in,d_out)
+    l.load_state_dict({"weights": weights})
+    return l.forward(in_features)
 
-    raise NotImplementedError
 
 
 def run_embedding(
@@ -51,8 +57,10 @@ def run_embedding(
     Returns:
         Float[Tensor, "... d_model"]: Batch of embeddings returned by your Embedding layer.
     """
-
-    raise NotImplementedError
+    e = _Embedding(vocab_size,d_model)
+    e.load_state_dict({"weights": weights})
+    return e.forward(token_ids)
+    
 
 
 def run_swiglu(
@@ -379,7 +387,9 @@ def run_rmsnorm(
         Float[Tensor,"... d_model"]: Tensor of with the same shape as `in_features` with the output of running
         RMSNorm of the `in_features`.
     """
-    raise NotImplementedError
+    r = _rmsnorm(d_model,eps)
+    r.load_state_dict({"weights": weights})
+    return r.forward(in_features)
 
 
 def run_silu(in_features: Float[Tensor, " ..."]) -> Float[Tensor, " ..."]:
@@ -560,7 +570,7 @@ def get_tokenizer(
     Returns:
         A BPE tokenizer that uses the provided vocab, merges, and special tokens.
     """
-    raise NotImplementedError
+    return _Tokenizer(vocab, merges, special_tokens)
 
 
 def run_train_bpe(
