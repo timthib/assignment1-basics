@@ -14,6 +14,11 @@ from cs336_basics.Part_I import tokenizer as _Tokenizer
 from cs336_basics.Part_II import Linear as _Linear
 from cs336_basics.Part_II import Embedding as _Embedding
 from cs336_basics.Part_II import rmsnorm as _rmsnorm
+from cs336_basics.Part_II import positionwise_feedforward as _positionwise_feedforward
+from cs336_basics.Part_II import RotaryPositionalEmbedding as _RoPE
+from cs336_basics.Part_II import softmax as _softmax
+from cs336_basics.Part_II import scaled_dot_product_attention as _sdpa
+from cs336_basics.Part_II import multihead_self_attention as _mha 
 
 def run_linear(
     d_in: int,
@@ -87,12 +92,11 @@ def run_swiglu(
     """
     # Example:
     # If your state dict keys match, you can use `load_state_dict()`
-    # swiglu.load_state_dict(weights)
-    # You can also manually assign the weights
-    # swiglu.w1.weight.data = w1_weight
-    # swiglu.w2.weight.data = w2_weight
-    # swiglu.w3.weight.data = w3_weight
-    raise NotImplementedError
+
+    swiglu = _positionwise_feedforward(d_model, d_ff)
+    swiglu.load_state_dict({"w1": w1_weight, "w2": w2_weight, "w3": w3_weight})
+    return swiglu.forward(in_features)
+
 
 
 def run_scaled_dot_product_attention(
@@ -113,7 +117,7 @@ def run_scaled_dot_product_attention(
     Returns:
         Float[Tensor, " ... queries d_v"]: Output of SDPA
     """
-    raise NotImplementedError
+    return _sdpa(Q,K,V,mask)
 
 
 def run_multihead_self_attention(
@@ -187,7 +191,9 @@ def run_multihead_self_attention_with_rope(
         Float[Tensor, " ... sequence_length d_model"]: Tensor with the output of running your optimized, batched multi-headed attention
         implementation with the given QKV projection weights and input features.
     """
-    raise NotImplementedError
+    mha = _mha(d_model, num_heads, max_seq_len, theta, q_proj_weight, k_proj_weight, v_proj_weight,
+               o_proj_weight)
+    return mha.forward(in_features,token_positions)
 
 
 def run_rope(
@@ -209,7 +215,9 @@ def run_rope(
     Returns:
         Float[Tensor, " ... sequence_length d_k"]: Tensor with RoPEd input.
     """
-    raise NotImplementedError
+    rope = _RoPE(theta, d_k, max_seq_len)
+    return rope.forward(in_query_or_key,token_positions)
+
 
 
 def run_transformer_block(
@@ -442,7 +450,7 @@ def run_softmax(in_features: Float[Tensor, " ..."], dim: int) -> Float[Tensor, "
         Float[Tensor, "..."]: Tensor of with the same shape as `in_features` with the output of
         softmax normalizing the specified `dim`.
     """
-    raise NotImplementedError
+    return _softmax(in_features,dim)
 
 
 def run_cross_entropy(

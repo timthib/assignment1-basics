@@ -110,3 +110,113 @@ Note: Remember to upcast your input to torch.float32 before performing the norma
 (and later downcast to the original dtype), as described above.
 To test your implementation, implement the test adapter at [adapters.run_rmsnorm] . Then, run
 uv run pytest -k test_rmsnorm.
+
+
+
+Problem (positionwise_feedforward): Implement the position-wise feed-forward network (2
+points)
+Deliverable: Implement the SwiGLU feed-forward network, composed of a SiLU activation
+function and a GLU.
+Note: in this particular case, you should feel free to use torch.sigmoid in your implementation
+for numerical stability.
+You should set 𝑑ff to approximately 8
+3 × 𝑑model in your implementation, while ensuring that the
+dimensionality of the inner feed-forward layer is a multiple of 64 to make good use of your
+hardware. To test your implementation against our provided tests, you will need to implement the
+test adapter at [adapters.run_swiglu] . Then, run uv run pytest -k test_swiglu to test your
+implementation.
+
+ 
+#Rope 
+3.4.3 Relative Positional Embeddings
+To inject positional information into the model, we will implement Rotary Position Embeddings
+[J. Su et al., 2021], often called RoPE. For a given query token 𝑞(𝑖) = 𝑊 𝑞𝑥(𝑖) ∈ ℝ𝑑 at token position 𝑖, we
+will apply a pairwise rotation matrix 𝑅𝑖, giving us 𝑞′(𝑖) = 𝑅𝑖𝑞(𝑖) = 𝑅𝑖𝑊 𝑞𝑥(𝑖). Here, 𝑅𝑖 will rotate pairs of
+embedding elements 𝑞(𝑖)
+2𝑘−1:2𝑘 as 2d vectors by the angle 𝜃𝑖,𝑘 =
+𝑖
+Θ(2𝑘−2)/𝑑 for 𝑘 ∈ {1, …, 𝑑/2} and some
+constant Θ. Thus, we can consider 𝑅𝑖 to be a block-diagonal matrix of size 𝑑 × 𝑑, with blocks 𝑅𝑖
+𝑘 for 𝑘 ∈
+{1, …,
+𝑑
+2 }, with
+𝑅𝑖
+𝑘 = (cos(𝜃𝑖,𝑘)
+sin(𝜃𝑖,𝑘)
+− sin(𝜃𝑖,𝑘)
+cos(𝜃𝑖,𝑘) ) (8)
+Thus we get the full rotation matrix
+𝑅𝑖
+where 0s represent 2 × 2 zero matrices. While one could construct the full 𝑑 × 𝑑 matrix, a good solution
+should use the properties of this matrix to implement the transformation more efficiently. Since we only
+care about the relative rotation of tokens within a given sequence, we can reuse the values we compute for
+cos(𝜃𝑖,𝑘) and sin(𝜃𝑖,𝑘) across layers, and different batches. If you would like to optimize it, you may use a
+single RoPE module referenced by all layers, and it can have a 2d pre-computed buffer of sin and cos
+values created during init with self.register_buffer(persistent=False), instead of an nn.Parameter
+(because we do not want to learn these fixed cosine and sine values). The exact same rotation process we
+did for our 𝑞(𝑖) is then done for 𝑘(𝑗), rotating by the corresponding 𝑅𝑗. Notice that this layer has no
+learnable parameters.
+Problem (rope): Implement RoPE (2 points)
+Deliverable: Implement a class RotaryPositionalEmbedding that applies RoPE to the input
+tensor.
+The following interface is recommended:
+def __init__(self, theta: float, d_k: int, max_seq_len: int, device=None) Construct the
+RoPE module and create buffers if needed.
+theta: float Θ value for the RoPE
+d_k: int dimension of query and key vectors
+max_seq_len: int Maximum sequence length that will be input
+device: torch.device | None = None Device to store the buffer on
+def forward(self, x: torch.Tensor, token_positions: torch.Tensor) -> torch.Tensor Process
+an input tensor of shape (..., seq_len, d_k) and return a tensor of the same shape. Note
+that you should tolerate 𝑥 with an arbitrary number of batch dimensions. You should assume
+that the token positions are a tensor of shape (..., seq_len) specifying the token positions of
+𝑥 along the sequence dimension.
+You should use the token positions to slice your (possibly precomputed) cos and sin tensors along
+the sequence dimension.
+To test your implementation, complete [adapters.run_rope] and make sure it passes uv run
+pytest -k test_rope
+
+#softmax 
+Problem (softmax): Implement softmax (1 point)
+Deliverable: Write a function to apply the softmax operation on a tensor. Your function should
+take two parameters: a tensor and a dimension 𝑖, and apply softmax to the 𝑖-th dimension of the
+input tensor. The output tensor should have the same shape as the input tensor, but its 𝑖-th
+dimension will now have a normalized probability distribution. Use the trick of subtracting the
+maximum value in the 𝑖-th dimension from all elements of the 𝑖-th dimension to avoid numerical
+stability issues.
+To test your implementation, complete [adapters.run_softmax] and make sure it passes uv run
+pytest -k test_softmax_matches_pytorch.
+
+#scaled dot product attention
+
+Problem (scaled_dot_product_attention): Implement scaled dot-product attention (5
+points)
+Deliverable: Implement the scaled dot-product attention function. Your implementation should
+handle keys and queries of shape (batch_size, ..., seq_len, d_k) and values of shape
+(batch_size, ..., seq_len, d_v), where ... represents any number of other batch-like
+dimensions (if provided). The implementation should return an output with the shape
+(batch_size, ..., seq_len, d_v). See Section 3.2 for a discussion on batch-like dimensions.
+Your implementation should also support an optional user-provided boolean mask of shape
+(seq_len, seq_len). The attention probabilities of positions with a mask value of True should
+collectively sum to 1, and the attention probabilities of positions with a mask value of False
+should be zero.
+
+To test your implementation against our provided tests, you will need to implement the test
+adapter at [adapters.run_scaled_dot_product_attention] . uv run pytest -k test_scaled_dot_product_attention tests your implementation on third-order input tensors, while
+uv run pytest -k test_4d_scaled_dot_product_attention tests your implementation on fourth-
+order input tensors.
+
+#multi head self attention
+Problem (multihead_self_attention): Implement causal multi-head self-attention (5 points)
+As a stretch goal, try combining the key, query, and value projections into a single weight matrix so you only need a
+single matrix multiply.
+Deliverable: Implement causal multi-head self-attention as a torch.nn.Module. Your
+implementation should accept (at least) the following parameters:
+d_model: int Dimensionality of the Transformer block inputs.
+num_heads: int Number of heads to use in multi-head self-attention.
+Following A. Vaswani et al. [8], set 𝑑𝑘 = 𝑑𝑣
+𝑑model
+=
+ℎ . To test your implementation against our
+provided tests, implement the test adapter at [adapters.run_multihead_self_attention
