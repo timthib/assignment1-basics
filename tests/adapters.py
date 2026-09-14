@@ -18,7 +18,8 @@ from cs336_basics.Part_II import positionwise_feedforward as _positionwise_feedf
 from cs336_basics.Part_II import RotaryPositionalEmbedding as _RoPE
 from cs336_basics.Part_II import softmax as _softmax
 from cs336_basics.Part_II import scaled_dot_product_attention as _sdpa
-from cs336_basics.Part_II import multihead_self_attention as _mha 
+from cs336_basics.Part_II import multihead_self_attention_rope as _mhar
+from cs336_basics.Part_II import multihead_self_attention as _mha
 
 def run_linear(
     d_in: int,
@@ -151,7 +152,10 @@ def run_multihead_self_attention(
         Float[Tensor, " ... sequence_length d_model"]: Tensor with the output of running your optimized, batched multi-headed attention
         implementation with the given QKV projection weights and input features.
     """
-    raise NotImplementedError
+
+    mha = _mha(d_model, num_heads, q_proj_weight, k_proj_weight, v_proj_weight,
+               o_proj_weight)
+    return mha.forward(in_features)
 
 
 def run_multihead_self_attention_with_rope(
@@ -191,7 +195,7 @@ def run_multihead_self_attention_with_rope(
         Float[Tensor, " ... sequence_length d_model"]: Tensor with the output of running your optimized, batched multi-headed attention
         implementation with the given QKV projection weights and input features.
     """
-    mha = _mha(d_model, num_heads, max_seq_len, theta, q_proj_weight, k_proj_weight, v_proj_weight,
+    mha = _mhar(d_model, num_heads, max_seq_len, theta, q_proj_weight, k_proj_weight, v_proj_weight,
                o_proj_weight)
     return mha.forward(in_features,token_positions)
 

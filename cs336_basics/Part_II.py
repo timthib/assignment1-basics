@@ -180,6 +180,41 @@ def scaled_dot_product_attention(Q,K,V,M=None):
 
 class multihead_self_attention(torch.nn.Module):
 
+    def __init__(self,d_model, num_heads, Wq, Wk, Wv, Wo):
+        super().__init__()
+        self.d_model = d_model
+        self.num_heads = num_heads
+        self.Wq = Wq # d_model  * d_k
+        self.Wk = Wk # d_model  * d_k
+        self.Wv = Wv # d_model  * d_v
+        self.Wo = Wo # d_model  * d_model
+        
+    def forward(self,x):
+        heads = []
+        seq_len = x.shape[-2]
+        m = torch.tril(torch.ones(seq_len,seq_len,dtype=torch.bool)) #lower = 1, upper = 0, shape = seq_len * seq_len
+        Q = x @ self.Wq.T
+        K = x @ self.Wk.T
+        V = x @ self.Wv.T
+
+        for h in range(self.num_heads):
+            range_head = h*self.d_model//self.num_heads,(h+1)*self.d_model//self.num_heads
+            
+            q = Q[...,range_head[0]:range_head[1]] #shape batch, ..., seq_len, d_model
+            
+            k = K[...,range_head[0]:range_head[1]]
+
+            v = V[...,range_head[0]:range_head[1]]
+            
+            a = scaled_dot_product_attention(q,k,v,m)
+            heads.append(a)
+
+        multi_h = torch.cat(heads,dim=-1)     
+        
+        return  multi_h @ self.Wo.T
+
+class multihead_self_attention_rope(torch.nn.Module):
+
     def __init__(self,d_model, num_heads, max_seq_len,theta, Wq, Wk, Wv, Wo):
         super().__init__()
         self.d_model = d_model
@@ -200,11 +235,11 @@ class multihead_self_attention(torch.nn.Module):
         K = x @ self.Wk.T
         V = x @ self.Wv.T
 
+        if token_positions is None : 
+                token_positions = torch.arange(seq_len) #shape ?
+
         for h in range(self.num_heads):
             range_head = h*self.d_model//self.num_heads,(h+1)*self.d_model//self.num_heads
-            
-            if token_positions is None : 
-                token_positions = torch.arange(seq_len) #shape ?
             
             q = Q[...,range_head[0]:range_head[1]] #shape batch, ..., seq_len, d_model
             q = self.rope.forward(q,token_positions)
@@ -223,3 +258,15 @@ class multihead_self_attention(torch.nn.Module):
     
 
 
+def transformer_block(d_model, num_heads, d_ff,x):
+    """
+    d_model: int Dimensionality of the Transformer block inputs.
+    num_heads: int Number of heads to use in multi-head self-attention.
+    d_ff: int Dimensionality of the position-wise feed-forward inner layer.
+    Pre normalisation layer 
+    """
+
+    rms = rmsnorm(d_model)
+    x_norm = rms.forward(x)
+    max_seq_len = x.shape[1]
+    mhsa = multihead_self_attention(d_model,num_heads,max_seq_len)
