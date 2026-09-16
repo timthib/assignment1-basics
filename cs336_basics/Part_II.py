@@ -258,7 +258,7 @@ class multihead_self_attention_rope(torch.nn.Module):
     
 
 
-def transformer_block(d_model, num_heads, d_ff,x):
+def transformer_block(d_model, num_heads, d_ff, theta, max_seq_len, weights,x, Wq,Wk,Wv,Wo):
     """
     d_model: int Dimensionality of the Transformer block inputs.
     num_heads: int Number of heads to use in multi-head self-attention.
@@ -267,6 +267,26 @@ def transformer_block(d_model, num_heads, d_ff,x):
     """
 
     rms = rmsnorm(d_model)
+    rms.load_state_dict({'weights' : weights['ln1.weight']})
     x_norm = rms.forward(x)
-    max_seq_len = x.shape[1]
-    mhsa = multihead_self_attention(d_model,num_heads,max_seq_len)
+
+    mhsa = multihead_self_attention_rope(d_model,num_heads,max_seq_len,theta,Wq,Wk,Wv,Wo)
+    # mhsa.load_state_dict({'Wq': weights['attn.q_proj.weight'], 'Wk' : weights['attn.k_proj.weight']
+    #                       'Wv' : weights['attn.v_proj.weight'], 'Wo' : weights['attn.output_proj.weight']})
+    
+    y = x + mhsa.forward(x_norm,None)
+
+    p_ff = positionwise_feedforward(d_model,d_ff)
+    p_ff.load_state_dict({'w1': weights['ffn.w1.weight'], 'w2' : weights['ffn.w2.weight'],
+    'w3': weights['ffn.w3.weight']})
+    # p_ff.w1 = weights['ffn.w1.weight']
+    # p_ff.w2 = weights['ffn.w2.weight']
+    # p_ff.w3 = weights['ffn.w3.weight']
+
+    rms2 = rmsnorm(d_model)
+    rms2.load_state_dict({'weights' : weights['ln2.weight']})
+    y_norm = rms2.forward(y)
+    z = y + p_ff.forward(y_norm)
+
+    return z
+

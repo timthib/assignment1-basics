@@ -20,6 +20,7 @@ from cs336_basics.Part_II import softmax as _softmax
 from cs336_basics.Part_II import scaled_dot_product_attention as _sdpa
 from cs336_basics.Part_II import multihead_self_attention_rope as _mhar
 from cs336_basics.Part_II import multihead_self_attention as _mha
+from cs336_basics.Part_II import transformer_block as _tb
 
 def run_linear(
     d_in: int,
@@ -294,7 +295,15 @@ def run_transformer_block(
         Float[Tensor, "batch sequence_length d_model"] Tensor with the output of
         running the Transformer block on the input features while using RoPE.
     """
-    raise NotImplementedError
+    Wq = weights['attn.q_proj.weight']
+    Wk = weights['attn.k_proj.weight']
+    Wv = weights['attn.v_proj.weight']
+    Wo = weights['attn.output_proj.weight']
+
+
+    return _tb(d_model,num_heads,d_ff,theta,max_seq_len,weights,in_features, Wq,Wk,Wv,Wo)
+    
+    
 
 
 def run_transformer_lm(
